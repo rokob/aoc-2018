@@ -29,11 +29,56 @@ fn main() {
                     .then(a.hour.cmp(&b.hour))
                     .then(a.minute.cmp(&b.minute))
                     );
+    /*
     let id = find_most_asleep(&entries);
     let min = find_time_asleep(&entries, id);
     println!("{}", id);
     println!("{}", min);
+    */
+    let (id, min) = find_sleep_freq(&entries);
     println!("{}", id*min);
+}
+
+fn find_sleep_freq(entries: &Vec<Entry>) -> (u32, u32) {
+    let mut sleep_time = HashMap::new();
+    let mut current_id = 0u32;
+    let mut current_sleep_start = 0;
+    for e in entries {
+        match e.kind {
+            Kind::Asleep => {
+                current_sleep_start = e.minute;
+            },
+            Kind::Wake => {
+                let mut st = sleep_time.entry(current_id).or_insert([0; 60]);
+                for i in current_sleep_start..e.minute {
+                    st[i as usize] += 1;
+                }
+                current_sleep_start = 0;
+            },
+            Kind::Begin(id) => {
+                current_id = id;
+            }
+        }
+    }
+    let mut most_sleep = 0;
+    let mut result_id = 0;
+    let mut result_idx = 0;
+    for (k, v) in sleep_time.iter() {
+        let mut best = 0;
+        let mut idx = 0;
+        for i in 0..60 {
+            if v[i] > best {
+                best = v[i];
+                idx = i;
+            }
+        }
+        if best > most_sleep {
+            most_sleep = best;
+            result_idx = idx;
+            result_id = *k;
+        }
+    }
+    (result_id, result_idx as u32)
 }
 
 fn find_time_asleep(entries: &Vec<Entry>, id: u32) -> u32 {
