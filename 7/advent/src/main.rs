@@ -54,13 +54,15 @@ fn main() {
             counter += 1;
         }
 
-        for (c, ps) in prereqs.iter_mut() {
-            for current in finished.iter() {
-                let idx_r = ps.binary_search(&current);
-                if let Ok(idx) = idx_r {
-                    ps.remove(idx);
-                    if ps.is_empty() {
-                        can_do.push(*c);
+        if !finished.is_empty() {
+            for (c, ps) in prereqs.iter_mut() {
+                for current in finished.iter() {
+                    let idx_r = ps.binary_search(&current);
+                    if let Ok(idx) = idx_r {
+                        ps.remove(idx);
+                        if ps.is_empty() {
+                            can_do.push(*c);
+                        }
                     }
                 }
             }
