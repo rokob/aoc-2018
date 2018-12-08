@@ -7,14 +7,28 @@ struct Node {
     metadata: Vec<usize>,
 }
 
-
 fn main() {
     for line in read_file("input.txt") {
         let parts = split_ws(&line);
         let parts = parts.iter().map(|c| c.parse::<usize>().unwrap()).collect::<Vec<usize>>();
         let root = get_nodes(&parts, 0);
         println!("{}", count_meta(&root.0));
+        println!("{}", score_node(&root.0));
     }
+}
+
+fn score_node(node: &Node) -> usize {
+    if node.children.is_empty() {
+        return node.metadata.iter().sum();
+    }
+    let mut score = 0;
+    for m in node.metadata.iter() {
+        if *m == 0 || *m > node.children.len() {
+            continue;
+        }
+        score += score_node(&*node.children[*m - 1]);
+    }
+    score
 }
 
 fn count_meta(node: &Node) -> usize {
@@ -41,7 +55,7 @@ fn get_nodes(data: &[usize], start: usize) -> (Node, usize) {
     }
     let mut childs = Vec::new();
     let mut offset = start+2;
-    for c in 0..children {
+    for _ in 0..children {
         let (child, next) = get_nodes(data, offset);
         childs.push(Box::new(child));
         offset = next;
