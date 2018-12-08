@@ -3,7 +3,7 @@ extern crate utils;
 use utils::{read_file, split_ws, HashMap, HashSet};
 
 struct Node {
-    children: Vec<Box<Node>>,
+    children: Vec<Node>,
     metadata: Vec<usize>,
 }
 
@@ -22,11 +22,11 @@ fn score_node(node: &Node) -> usize {
         return node.metadata.iter().sum();
     }
     let mut score = 0;
-    for m in node.metadata.iter() {
-        if *m == 0 || *m > node.children.len() {
+    for &m in node.metadata.iter() {
+        if m == 0 || m > node.children.len() {
             continue;
         }
-        score += score_node(&*node.children[*m - 1]);
+        score += score_node(&node.children[m - 1]);
     }
     score
 }
@@ -36,15 +36,12 @@ fn count_meta(node: &Node) -> usize {
     for n in node.children.iter() {
         sum += count_meta(n);
     }
-    for m in node.metadata.iter() {
-        sum += *m;
-    }
-    sum
+    sum + node.metadata.iter().sum::<usize>()
 }
 
 fn get_nodes(data: &[usize], start: usize) -> (Node, usize) {
-    let (children, metadata) = (data[start], data[start+1]);
-    if children == 0 {
+    let (child_count, metadata) = (data[start], data[start+1]);
+    if child_count == 0 {
         return (
             Node {
                 children: vec![],
@@ -53,16 +50,16 @@ fn get_nodes(data: &[usize], start: usize) -> (Node, usize) {
             start+2+metadata
             );
     }
-    let mut childs = Vec::new();
+    let mut children = Vec::new();
     let mut offset = start+2;
-    for _ in 0..children {
+    for _ in 0..child_count {
         let (child, next) = get_nodes(data, offset);
-        childs.push(Box::new(child));
+        children.push(child);
         offset = next;
     }
     (
         Node {
-            children: childs,
+            children,
             metadata: data[offset..offset+metadata].iter().cloned().collect(),
         },
         offset+metadata
