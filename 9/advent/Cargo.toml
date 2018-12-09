@@ -5,3 +5,4 @@ authors = ["Andrew Weiss <wvvwwvw@gmail.com>"]
 
 [dependencies]
 utils = { path = "../../utils" }
+slab = "0.4"
