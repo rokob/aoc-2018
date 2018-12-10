@@ -1,144 +1,71 @@
-extern crate slab;
 extern crate utils;
 #[allow(unused_imports)]
 use utils::{read_file, split_ws, HashMap, HashSet};
 
-use slab::Slab;
-use std::ops::{Index, IndexMut};
+use std::collections::VecDeque;
 
 // 405 players; last marble is worth 71700 points
 const PLAYERS: usize = 405;
 const LAST: usize = 7170000;
 
-fn main() {
-    let mut marbles: List<usize> = List::with_capacity(LAST);
-    let mut current = marbles.push_front(0);
-    let mut scores = HashMap::new();
-    let mut player = 1;
-
-    for to_play in 1..=LAST {
-        if to_play % 23 == 0 {
-            let e = scores.entry(player).or_insert(0);
-            *e += to_play;
-            for _ in 0..7 {
-                current = marbles[current].prev;
-            }
-            let tmp = marbles[current].next;
-            let val = marbles.remove(current);
-            *e += val;
-            current = tmp;
-        } else {
-            current = marbles[current].next;
-            current = marbles.insert_after(current, to_play);
-        }
-        player = if player == PLAYERS { 1 } else { player + 1 };
+fn rotate<T>(v: &mut VecDeque<T>, amt: isize) {
+    if amt == 0 || v.len() < 2 {
+        return;
     }
+    if amt < 0 {
+        for _ in amt..0 {
+            let elem = v.pop_front().unwrap();
+            v.push_back(elem);
+        }
+    } else {
+        for _ in 0..amt {
+            let elem = v.pop_back().unwrap();
+            v.push_front(elem);
+        }
+    }
+}
 
-    let result = scores.iter().map(|(_, v)| v).max().unwrap();
+fn main() {
+    let result = compute(PLAYERS, LAST);
     println!("{}", result);
 }
 
-struct List<T> {
-    slab: Slab<Node<T>>,
-    head: Pointer,
-}
+fn compute(players: usize, max: usize) -> usize {
+    let mut marbles = VecDeque::with_capacity(max);
+    marbles.push_front(0);
+    let mut scores = HashMap::new();
+    let mut player = 1;
 
-struct Node<T> {
-    value: T,
-    next: Pointer,
-    prev: Pointer,
-}
-
-#[derive(Eq, PartialEq, Copy, Clone)]
-struct Pointer(usize);
-
-impl Pointer {
-    #[inline]
-    fn null() -> Pointer {
-        Pointer(!0)
-    }
-    #[inline]
-    fn is_null(&self) -> bool {
-        *self == Pointer::null()
-    }
-}
-
-impl<T> Index<Pointer> for List<T> {
-    type Output = Node<T>;
-
-    fn index(&self, index: Pointer) -> &Node<T> {
-        &self.slab[index.0]
-    }
-}
-
-impl<T> IndexMut<Pointer> for List<T> {
-    fn index_mut(&mut self, index: Pointer) -> &mut Node<T> {
-        &mut self.slab[index.0]
-    }
-}
-
-impl<T> List<T> {
-    fn new() -> List<T> {
-        List {
-            slab: Slab::new(),
-            head: Pointer::null(),
-        }
-    }
-
-    fn with_capacity(cap: usize) -> List<T> {
-        List {
-            slab: Slab::with_capacity(cap),
-            head: Pointer::null(),
-        }
-    }
-
-    fn push_front(&mut self, t: T) -> Pointer {
-        let head = self.head;
-        if head.is_null() {
-            let n = Pointer(self.slab.insert(Node {
-                value: t,
-                prev: Pointer::null(),
-                next: Pointer::null(),
-            }));
-            self.head = n;
-            let node = &mut self[n];
-            node.prev = n;
-            node.next = n;
-            n
+    for to_play in 1..=max {
+        if to_play % 23 == 0 {
+            let e = scores.entry(player).or_insert(0);
+            *e += to_play;
+            rotate(&mut marbles, 7);
+            let val = marbles.pop_back().unwrap();
+            rotate(&mut marbles, -1);
+            *e += val;
         } else {
-            self.insert_before(head, t)
+            rotate(&mut marbles, -1);
+            marbles.push_back(to_play);
         }
+        player = if player == players { 1 } else { player + 1 };
     }
+    scores.iter().map(|(_, v)| *v).max().unwrap()
+}
 
-    fn insert_after(&mut self, node: Pointer, t: T) -> Pointer {
-        let next = self[node].next;
-        let n = Pointer(self.slab.insert(Node {
-            value: t,
-            prev: node,
-            next: next,
-        }));
-        self[next].prev = n;
-        self[node].next = n;
-        n
-    }
+#[test]
+fn test_examples() {
+    /*
+    10 players; last marble is worth 1618 points: high score is 8317
+    13 players; last marble is worth 7999 points: high score is 146373
+    17 players; last marble is worth 1104 points: high score is 2764
+    21 players; last marble is worth 6111 points: high score is 54718
+    30 players; last marble is worth 5807 points: high score is 37305
+    */
 
-    fn insert_before(&mut self, node: Pointer, t: T) -> Pointer {
-        let prev = self[node].prev;
-        let n = Pointer(self.slab.insert(Node {
-            value: t,
-            prev: prev,
-            next: node,
-        }));
-        self[prev].next = n;
-        self[node].prev = n;
-        n
-    }
-
-    fn remove(&mut self, node: Pointer) -> T {
-        let prev = self[node].prev;
-        let next = self[node].next;
-        self[prev].next = next;
-        self[next].prev = prev;
-        self.slab.remove(node.0).value
-    }
+    assert_eq!(compute(10, 1618), 8317);
+    assert_eq!(compute(13, 7999), 146373);
+    assert_eq!(compute(17, 1104), 2764);
+    assert_eq!(compute(21, 6111), 54718);
+    assert_eq!(compute(30, 5807), 37305);
 }
