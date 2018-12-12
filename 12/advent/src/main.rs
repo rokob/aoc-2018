@@ -1,104 +1,74 @@
 extern crate utils;
 #[allow(unused_imports)]
 use utils::{read_file, split_ws, HashMap, HashSet};
-
-#[derive(Debug)]
-struct Rule(bool, bool, bool, bool, bool, bool);
-
-impl Rule {
-    pub fn new(left: &str, result: &str) -> Self {
-        let chars = left.chars().collect::<Vec<char>>();
-        let result = result.chars().next().unwrap() == '#';
-        Rule(
-            chars[0] == '#',
-            chars[1] == '#',
-            chars[2] == '#',
-            chars[3] == '#',
-            chars[4] == '#',
-            result)
-    }
-
-    fn match_(&self, parts: &[bool]) -> (bool, bool) {
-        (self.0 == parts[0]
-         && self.1 == parts[1]
-         && self.2 == parts[2]
-         && self.3 == parts[3]
-         && self.4 == parts[4],
-         self.5)
-    }
-}
-
-const N: usize = 20;
-const SIZE: usize = N*100;
+use std::collections::VecDeque;
 
 fn main() {
     let mut lines = read_file("input.txt");
     let initial = lines.next().unwrap();
     let initial = split_ws(&initial)[2];
     lines.next();
-
-    println!("inital: {}", initial.len());
-    let mut state = [false; SIZE];
-    let zero = SIZE / 2;
-    for (i, c) in initial.chars().enumerate() {
-        state[zero + i] = c == '#';
+    let mut state = String::from("...");
+    for c in initial.chars() {
+        state.push(c);
     }
-
-    let mut rules = Vec::new();
-
+    state.push_str("...");
+    let mut rules = HashMap::new();
     for rule in lines {
         let parts = split_ws(&rule);
-        let r = Rule::new(parts[0], parts[2]);
-        rules.push(r);
+        let result = parts[2].chars().next().unwrap();
+        rules.insert(parts[0].to_owned(), result);
     }
 
-    let mut iter = 0;
-    loop {
-        let (next, same) = do_round(&state, &rules);
-        if same || iter > 200 {
+    let mut last_score = 0;
+    let mut offset = 3;
+    let mut gen = 0;
+    let same_count = 5;
+    let mut diffs = VecDeque::with_capacity(same_count + 1);
+    'gens: loop {
+        let mut next = String::from("...");
+        for idx in 2..state.len()-2 {
+            match rules.get(&state[idx-2..idx+3]) {
+                Some(&c) => {
+                    next.push(c)
+                },
+                _ => panic!("impossible"),
+            }
+        }
+        next.push_str("...");
+        offset += 1;
+        state = next;
+        gen += 1;
+
+        let score = count(&state, offset);
+        if gen == 20 {
+            println!("Part 1: {}", score)
+        }
+        let diff = score - last_score;
+        diffs.push_back(diff);
+        if diffs.len() > same_count {
+            let first = diffs.pop_front().unwrap();
+            for &v in diffs.iter() {
+                if v != first {
+                    last_score = score;
+                    continue 'gens;
+                }
+            }
             break;
         }
-        print(&state[zero-1..zero+105]);
-        state = next;
-        iter += 1;
+        last_score = score;
     }
-    let result = count(&state, zero);
-    println!("{}", result);
+    let result = count(&state, offset);
+    let ans = (50_000_000_000 - gen) * (result - last_score) + result;
+    println!("Part 2: {}", ans);
 }
 
-fn print(state: &[bool]) {
-    for &c in state.iter() {
-        if c { print!("#") } else { print!(".") }
-    }
-    println!("");
-}
-
-fn count(state: &[bool], zero: usize) -> isize {
+fn count(state: &str, offset: isize) -> isize {
     let mut result = 0;
-    for (i, &b) in state.iter().enumerate() {
-        if b {
-            result += i as isize - zero as isize;
+    for (i, c) in state.chars().enumerate() {
+        if c == '#' {
+            result += i as isize - offset;
         }
     }
     result
-}
-
-fn do_round(state: &[bool], rules: &Vec<Rule>) -> ([bool; SIZE], bool) {
-    let mut same = true;
-    let mut next = [false; SIZE];
-    let mut i = 2;
-    while i + 2 < state.len() {
-        for rule in rules {
-            let (m, r) = rule.match_(&state[i-2..i+3]);
-            if m {
-                next[i] = r;
-                if state[i] != next[i] {
-                    same = false;
-                }
-                break;
-            }
-        }
-        i += 1;
-    }
-    (next, same)
 }
