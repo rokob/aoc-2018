@@ -35,6 +35,7 @@ struct Cart {
     loc: (usize, usize),
     dir: Dir,
     next_move: Move,
+    alive: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
@@ -64,6 +65,7 @@ fn main() {
                         loc: (r, c),
                         dir: Dir::Up,
                         next_move: Move::Left,
+                        alive: true,
                     };
                     carts.push(cart);
                 },
@@ -74,6 +76,7 @@ fn main() {
                         loc: (r, c),
                         dir: Dir::Down,
                         next_move: Move::Left,
+                        alive: true,
                     };
                     carts.push(cart);
                 },
@@ -84,6 +87,7 @@ fn main() {
                         loc: (r, c),
                         dir: Dir::Right,
                         next_move: Move::Left,
+                        alive: true,
                     };
                     carts.push(cart);
                 },
@@ -94,6 +98,7 @@ fn main() {
                         loc: (r, c),
                         dir: Dir::Left,
                         next_move: Move::Left,
+                        alive: true,
                     };
                     carts.push(cart);
                 },
@@ -103,82 +108,85 @@ fn main() {
         }
     }
 
-    let mut iter = 0;
-    let result = loop {
+    let stop_first = false;
+    let result = 'outer: loop {
+        carts = carts.into_iter().filter(|c| c.alive).collect::<Vec<_>>();
         carts.sort_by_key(|c| c.loc);
-        iter += 1;
-        let prev_locations = carts.iter().map(|c| c.loc).collect::<HashSet<_>>();
-        if let Some(loc) = tick(&grid, &mut carts, &prev_locations) {
-            break loc;
+        if carts.len() == 1 {
+            break carts[0].loc;
         }
-        let mut crashes = check_for_crash(&carts);
-        if !crashes.is_empty() {
-            crashes.sort();
-            break crashes[0];
+        for i in 0..carts.len() {
+            tick(&grid, &mut carts, i);
+            if let Some(loc) = check_for_crash(&mut carts, i) {
+                if stop_first {
+                    break 'outer loc;
+                }
+            }
         }
     };
-    println!("iter: {}", iter);
     println!("{},{}", result.1, result.0);
 }
 
-fn check_for_crash(carts: &Vec<Cart>) -> Vec<(usize, usize)> {
-    let mut locs = HashSet::new();
-    let mut crashes = Vec::new();
-    for c in carts.iter() {
-        if !locs.insert(&c.loc) {
-            crashes.push(c.loc);
+fn check_for_crash(carts: &mut Vec<Cart>, idx: usize) -> Option<(usize, usize)> {
+    let id = carts[idx].id;
+    let loc = carts[idx].loc;
+    let mut is_crash = false;
+    for c in carts.iter_mut() {
+        if c.id != id && c.loc == loc {
+            is_crash = true;
+            c.alive = false;
         }
     }
-    crashes
+    if is_crash {
+        carts[idx].alive = false;
+        Some(loc)
+    } else {
+        None
+    }
 }
 
-fn tick(grid: &[[Path; N]; N], carts: &mut Vec<Cart>, prev: &HashSet<(usize, usize)>) -> Option<(usize, usize)> {
-    for c in carts.iter_mut() {
-        let next_loc = match c.dir {
-            Dir::Up => (c.loc.0 - 1, c.loc.1),
-            Dir::Down => (c.loc.0 + 1, c.loc.1),
-            Dir::Left => (c.loc.0, c.loc.1 - 1),
-            Dir::Right => (c.loc.0, c.loc.1 + 1),
-        };
-        match grid[next_loc.0][next_loc.1] {
-            Path::Empty => panic!("bad grid"),
-            Path::Horiz | Path::Vert => {},
-            Path::Intersection => {
-                let next_dir = match c.next_move {
-                    Move::Straight => c.dir,
-                    Move::Left => match c.dir {
-                        Dir::Up => Dir::Left,
-                        Dir::Down => Dir::Right,
-                        Dir::Left => Dir::Down,
-                        Dir::Right => Dir::Up,
-                    },
-                    Move::Right => match c.dir {
-                        Dir::Up => Dir::Right,
-                        Dir::Down => Dir::Left,
-                        Dir::Left => Dir::Up,
-                        Dir::Right => Dir::Down,
-                    }
-                };
-                let next_move = c.next_move.next();
-                c.dir = next_dir;
-                c.next_move = next_move;
-            },
-            Path::Curve(v) => {
-                let next_dir = match c.dir {
-                    Dir::Up => if v == '/' { Dir::Right } else { Dir::Left },
-                    Dir::Down => if v == '/' { Dir::Left } else { Dir::Right },
-                    Dir::Left => if v == '/' { Dir::Down } else { Dir::Up },
-                    Dir::Right => if v == '/' { Dir::Up } else { Dir::Down },
-                };
-                c.dir = next_dir;
-            },
-        }
-        c.loc = next_loc;
-        if prev.contains(&c.loc) {
-            return Some(c.loc);
-        }
+fn tick(grid: &[[Path; N]; N], carts: &mut Vec<Cart>, idx: usize) {
+    let c = &mut carts[idx];
+    let next_loc = match c.dir {
+        Dir::Up => (c.loc.0 - 1, c.loc.1),
+        Dir::Down => (c.loc.0 + 1, c.loc.1),
+        Dir::Left => (c.loc.0, c.loc.1 - 1),
+        Dir::Right => (c.loc.0, c.loc.1 + 1),
+    };
+    match grid[next_loc.0][next_loc.1] {
+        Path::Empty => panic!("bad grid"),
+        Path::Horiz | Path::Vert => {},
+        Path::Intersection => {
+            let next_dir = match c.next_move {
+                Move::Straight => c.dir,
+                Move::Left => match c.dir {
+                    Dir::Up => Dir::Left,
+                    Dir::Down => Dir::Right,
+                    Dir::Left => Dir::Down,
+                    Dir::Right => Dir::Up,
+                },
+                Move::Right => match c.dir {
+                    Dir::Up => Dir::Right,
+                    Dir::Down => Dir::Left,
+                    Dir::Left => Dir::Up,
+                    Dir::Right => Dir::Down,
+                }
+            };
+            let next_move = c.next_move.next();
+            c.dir = next_dir;
+            c.next_move = next_move;
+        },
+        Path::Curve(v) => {
+            let next_dir = match c.dir {
+                Dir::Up => if v == '/' { Dir::Right } else { Dir::Left },
+                Dir::Down => if v == '/' { Dir::Left } else { Dir::Right },
+                Dir::Left => if v == '/' { Dir::Down } else { Dir::Up },
+                Dir::Right => if v == '/' { Dir::Up } else { Dir::Down },
+            };
+            c.dir = next_dir;
+        },
     }
-    None
+    c.loc = next_loc;
 }
 
 #[allow(dead_code)]
