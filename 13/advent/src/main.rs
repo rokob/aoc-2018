@@ -50,7 +50,7 @@ enum Path {
 fn main() {
     let mut grid = [[Path::Empty; N]; N];
     let mut carts = Vec::new();
-    for (r, line) in read_file("input.txt").enumerate() {
+    for (r, line) in include_str!("../input.txt").lines().enumerate() {
         for (c, part) in line.chars().enumerate() {
             match part {
                 '/' => grid[r][c] = Path::Curve('/'),
