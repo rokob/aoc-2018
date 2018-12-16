@@ -6,36 +6,46 @@ use std::collections::VecDeque;
 const N: usize = 32;
 
 fn main() {
-    let result = run("input.txt", false);
+    let result = part2("input.txt", false);
     println!("{}", result);
 }
 
 #[test]
 fn test_fake() {
-    assert_eq!(run("fake.txt", false), 18740);
+    assert_eq!(part1("fake.txt", false), 18740);
+}
+
+#[test]
+fn test_fake_part2() {
+    assert_eq!(part2("fake.txt", false), 1140);
 }
 
 #[test]
 fn test_fake2() {
-    assert_eq!(run("fake2.txt", false), 27730);
+    assert_eq!(part1("fake2.txt", false), 27730);
 }
 
 #[test]
 fn test_fake3() {
-    assert_eq!(run("fake3.txt", false), 28944);
+    assert_eq!(part1("fake3.txt", false), 28944);
 }
 
 #[test]
 fn test_fake4() {
-    assert_eq!(run("fake4.txt", false), 39514);
+    assert_eq!(part1("fake4.txt", false), 39514);
+}
+
+#[test]
+fn test_fake4_part2() {
+    assert_eq!(part2("fake4.txt", false), 31284);
 }
 
 #[test]
 fn test_fake5() {
-    assert_eq!(run("fake5.txt", false), 36334);
+    assert_eq!(part1("fake5.txt", false), 36334);
 }
 
-fn run(filename: &'static str, debug: bool) -> usize {
+fn get(filename: &'static str, elf_power: usize) -> ([[Type; N]; N], Vec<Thing>) {
     let mut grid = [[Type::Wall; N]; N];
     let mut things = Vec::new();
     for (r, line) in read_file(filename).enumerate() {
@@ -57,7 +67,7 @@ fn run(filename: &'static str, debug: bool) -> usize {
                     things.push(Thing {
                         pos: (r, c),
                         kind: Kind::Elf,
-                        attack: 3,
+                        attack: elf_power,
                         hp: 200,
                     });
                 }
@@ -65,6 +75,11 @@ fn run(filename: &'static str, debug: bool) -> usize {
             }
         }
     }
+    (grid, things)
+}
+
+fn part1(filename: &'static str, debug: bool) -> usize {
+    let (grid, mut things) = get(filename, 3);
     let mut iter = 0;
     loop {
         things = things.into_iter().filter(|t| t.hp > 0).collect();
@@ -83,6 +98,43 @@ fn run(filename: &'static str, debug: bool) -> usize {
         println!("iter: {} sum: {} iter*sum: {}  (iter-1)*sum: {}", iter, sum, iter*sum, (iter-1)*sum);
     }
     iter * sum
+}
+
+fn part2(filename: &'static str, debug: bool) -> usize {
+    let mut elf_power = 4;
+    let mut grid;
+    let mut things;
+    'outer: loop {
+        let (this_grid, these_things) = get(filename, elf_power);
+        things = these_things;
+        grid = this_grid;
+        let mut iter = 0;
+        loop {
+            if things.iter().filter(|t| t.kind == Kind::Elf && t.hp == 0).count() != 0 {
+                elf_power += 1;
+                continue 'outer;
+            }
+            things = things.into_iter().filter(|t| t.hp > 0).collect();
+            things.sort_by_key(|t| t.pos);
+            if debug {
+                print(&grid, &things);
+            }
+            if tick(&grid, &mut things) {
+                break;
+            }
+            iter += 1;
+        }
+        if things.iter().filter(|t| t.kind == Kind::Elf && t.hp == 0).count() != 0 {
+            elf_power += 1;
+            continue;
+        }
+        things = things.into_iter().filter(|t| t.hp > 0).collect();
+        let sum: usize = things.iter().map(|t| t.hp).sum::<usize>();
+        if debug {
+            println!("iter: {} sum: {} iter*sum: {}  (iter-1)*sum: {}", iter, sum, iter*sum, (iter-1)*sum);
+        }
+        return iter * sum
+    }
 }
 
 fn tick(grid: &[[Type; N]; N], things: &mut Vec<Thing>) -> bool {
