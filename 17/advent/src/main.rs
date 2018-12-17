@@ -15,8 +15,34 @@ enum Tile {
 }
 use Tile::*;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+enum Action {
+    Nothing,
+    Spill,
+    Pour,
+}
+use Action::*;
+
+impl Action {
+    fn from(cell: Tile, bottom: Tile) -> Self {
+        match (cell, bottom) {
+            (Clay, _) => Action::Nothing,
+            (Empty, Clay) | (Empty, WaterStand) | (WaterPour, Clay) | (WaterPour, WaterStand) => {
+                Action::Spill
+            }
+            (_, Empty) | (_, WaterPour) => Action::Pour,
+            _ => panic!("bad"),
+        }
+    }
+}
+
 fn main() {
     let mut grid = [[Empty; N]; N];
+    let (min_y, max_y) = get_grid(&mut grid);
+    solve(grid, min_y, max_y, /* part 1? */ false);
+}
+
+fn get_grid(grid: &mut [[Tile; N]; N]) -> (usize, usize) {
     grid[0][SX] = Spring;
     let mut min_x = std::usize::MAX;
     let mut max_x = std::usize::MIN;
@@ -58,14 +84,16 @@ fn main() {
             max_y = std::cmp::max(max_y, y);
         }
     }
-
-    run(&mut grid, min_y, max_y);
-    let result = count(&grid, min_y, max_y);
-    println!("result: {}", result);
-
-    print(&grid);
+    (min_y, max_y)
 }
 
+fn solve(mut grid: [[Tile; N]; N], min_y: usize, max_y: usize, part1: bool) {
+    run(&mut grid, max_y);
+    let result = count(&grid, min_y, max_y, part1);
+    println!("Answer: {}", result);
+}
+
+#[allow(dead_code)]
 fn print(grid: &[[Tile; N]; N]) {
     for y in 0..14 {
         for x in 494..508 {
@@ -82,7 +110,7 @@ fn print(grid: &[[Tile; N]; N]) {
     println!("");
 }
 
-fn run(grid: &mut [[Tile; N]; N], min: usize, max: usize) {
+fn run(grid: &mut [[Tile; N]; N], max: usize) {
     let mut start = vec![(1, SX)];
 
     loop {
@@ -106,7 +134,6 @@ fn run(grid: &mut [[Tile; N]; N], min: usize, max: usize) {
             }
             loop {
                 y -= 1;
-                let mut floor = true;
                 let mut right = false;
                 for xx in x + 1..N {
                     if grid[y][xx] == Clay {
@@ -114,7 +141,6 @@ fn run(grid: &mut [[Tile; N]; N], min: usize, max: usize) {
                         break;
                     }
                     if grid[y + 1][xx] != Clay && grid[y + 1][xx] != WaterStand {
-                        floor = false;
                         break;
                     }
                 }
@@ -125,7 +151,6 @@ fn run(grid: &mut [[Tile; N]; N], min: usize, max: usize) {
                         break;
                     }
                     if grid[y + 1][x - 1 - xx] != Clay && grid[y + 1][x - 1 - xx] != WaterStand {
-                        floor = false;
                         break;
                     }
                 }
@@ -153,110 +178,49 @@ fn run(grid: &mut [[Tile; N]; N], min: usize, max: usize) {
             let mut right_offset = 1;
             grid[y][x] = WaterPour;
             loop {
-                match (
-                    grid[y][x - left_offset],
-                    grid[y + 1][x - left_offset],
-                    grid[y][x + right_offset],
-                    grid[y + 1][x + right_offset],
-                ) {
-                    (Clay, Clay, Empty, Clay)
-                    | (Clay, WaterStand, Empty, Clay)
-                    | (Clay, Clay, Empty, WaterStand)
-                    | (Clay, Clay, WaterPour, WaterStand)
-                    | (Clay, Clay, WaterPour, Clay)
-                    | (WaterPour, WaterPour, WaterPour, WaterStand)
-                    | (WaterPour, Empty, WaterPour, Clay)
-                    | (WaterPour, WaterPour, WaterPour, Clay)
-                    | (WaterPour, Empty, WaterPour, WaterStand)
-                    | (Empty, Empty, WaterPour, WaterStand)
-                    | (Clay, WaterStand, Empty, WaterStand) => {
-                        // spread right
-                        grid[y][x + right_offset] = WaterPour;
-                        right_offset += 1;
-                    }
-                    (Empty, Clay, Clay, Clay)
-                    | (Empty, WaterStand, Clay, Clay)
-                    | (Empty, Clay, Clay, WaterStand)
-                    | (WaterPour, Clay, Clay, WaterStand)
-                    | (WaterPour, WaterStand, Clay, WaterStand)
-                    | (WaterPour, WaterStand, WaterPour, Empty)
-                    | (WaterPour, Clay, WaterPour, Empty)
-                    | (WaterPour, WaterStand, WaterPour, WaterPour)
-                    | (WaterPour, Clay, WaterPour, WaterPour)
-                    | (Empty, WaterStand, WaterPour, WaterPour)
-                    | (Empty, Clay, WaterPour, WaterPour)
-                    | (Empty, WaterStand, WaterPour, Empty)
-                    | (WaterPour, WaterStand, Clay, Clay)
-                    | (WaterPour, WaterStand, Empty, Empty)
-                    | (WaterPour, Clay, Clay, Clay)
-                    | (Empty, WaterStand, Clay, WaterStand) => {
-                        // spread left
-                        grid[y][x - left_offset] = WaterPour;
-                        left_offset += 1;
-                    }
-                    (Empty, Clay, Empty, Clay)
-                    | (Empty, WaterStand, Empty, Clay)
-                    | (Empty, Clay, Empty, WaterStand)
-                    | (Empty, WaterStand, WaterPour, Clay)
-                    | (WaterPour, Clay, Empty, Clay)
-                    | (Empty, WaterStand, WaterPour, WaterStand)
-                    | (Empty, Clay, WaterPour, Clay)
-                    | (WaterPour, WaterStand, Empty, WaterStand)
-                    | (WaterPour, Clay, Empty, WaterStand)
-                    | (WaterPour, Clay, WaterPour, WaterStand)
-                    | (WaterPour, WaterStand, Empty, Clay)
-                    | (Empty, WaterStand, Empty, WaterStand) => {
-                        // spread both
-                        grid[y][x + right_offset] = WaterPour;
-                        right_offset += 1;
-                        grid[y][x - left_offset] = WaterPour;
-                        left_offset += 1;
-                    }
-                    (Empty, Empty, Empty, Empty) | (WaterPour, Empty, WaterPour, Empty)
-                        | (WaterPour, WaterPour, WaterPour, WaterPour) => {
-                        // spill both
-                        grid[y][x + right_offset] = WaterPour;
-                        grid[y][x - left_offset] = WaterPour;
-                        next.push((y + 1, x + right_offset));
-                        next.push((y + 1, x - left_offset));
-                        break;
-                    }
-                    (Clay, _, Empty, Empty)
-                        | (Clay, Clay, WaterPour, WaterPour)
-                        | (Clay, _, WaterPour, Empty) => {
+                let left_action =
+                    Action::from(grid[y][x - left_offset], grid[y + 1][x - left_offset]);
+                let right_action =
+                    Action::from(grid[y][x + right_offset], grid[y + 1][x + right_offset]);
+                match (left_action, right_action) {
+                    (Nothing, Spill) | (Pour, Spill) => {
                         // spill right
                         grid[y][x + right_offset] = WaterPour;
+                        right_offset += 1;
+                    }
+                    (Spill, Nothing) | (Spill, Pour) => {
+                        // spill left
+                        grid[y][x - left_offset] = WaterPour;
+                        left_offset += 1;
+                    }
+                    (Spill, Spill) => {
+                        // spill both
+                        grid[y][x + right_offset] = WaterPour;
+                        right_offset += 1;
+                        grid[y][x - left_offset] = WaterPour;
+                        left_offset += 1;
+                    }
+                    (Pour, Pour) => {
+                        // pour both
+                        grid[y][x + right_offset] = WaterPour;
+                        grid[y][x - left_offset] = WaterPour;
+                        next.push((y + 1, x + right_offset));
+                        next.push((y + 1, x - left_offset));
+                        break;
+                    }
+                    (Nothing, Pour) => {
+                        // pour right
+                        grid[y][x + right_offset] = WaterPour;
                         next.push((y + 1, x + right_offset));
                         break;
                     }
-                    (Empty, Empty, Clay, _) | (WaterPour, Empty, Clay, _)
-                        | (WaterPour, WaterPour, Clay, Clay) => {
-                        // spill left
+                    (Pour, Nothing) => {
+                        // pour left
                         grid[y][x - left_offset] = WaterPour;
                         next.push((y + 1, x - left_offset));
                         break;
                     }
-                    (Empty, Empty, Empty, _) => {
-                        grid[y][x + right_offset] = WaterPour;
-                        right_offset += 1;
-                    }
-                    (Empty, _, Empty, Empty) => {
-                        grid[y][x - left_offset] = WaterPour;
-                        left_offset += 1;
-                    }
-                    (WaterPour, WaterStand, WaterPour, WaterStand)
-                    | (WaterPour, WaterStand, WaterPour, Clay)
-                    | (WaterPour, Clay, WaterPour, WaterStand)
-                    | (WaterPour, Clay, WaterPour, Clay) => {
-                        grid[y][x + right_offset] = WaterPour;
-                        right_offset += 1;
-                        grid[y][x - left_offset] = WaterPour;
-                        left_offset += 1;
-                    }
-                    (a, b, c, d) => panic!(
-                        "bad input: ({}, {})({} {}): ({:?}, {:?}, {:?}, {:?})",
-                        x, y, left_offset, right_offset, a, b, c, d
-                    ),
+                    (Nothing, Nothing) => panic!("bad input"),
                 }
             }
         }
@@ -269,11 +233,14 @@ fn run(grid: &mut [[Tile; N]; N], min: usize, max: usize) {
     }
 }
 
-fn count(grid: &[[Tile; N]; N], min: usize, max: usize) -> usize {
+fn count(grid: &[[Tile; N]; N], min: usize, max: usize, all: bool) -> usize {
     let mut count = 0;
     for x in 0..N {
         for y in min..max + 1 {
             if grid[y][x] == WaterStand {
+                count += 1;
+            }
+            if all && (grid[y][x] == WaterPour || grid[y][x] == Spring) {
                 count += 1;
             }
         }
