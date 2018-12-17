@@ -23,6 +23,7 @@ fn main() {
         Op::Eqri,
         Op::Eqrr,
     ];
+    let mut part1 = 0;
     loop {
         let before = lines.next().unwrap();
         let op = lines.next().unwrap();
@@ -32,9 +33,15 @@ fn main() {
         let after = lines.next().unwrap();
         lines.next();
         let (op_code, possible) = check(before, op, after, &ops);
-        let e = op_map.entry(op_code).or_insert(ops.iter().cloned().collect::<HashSet<Op>>());
+        if possible.len() >= 3 {
+            part1 += 1;
+        }
+        let e = op_map
+            .entry(op_code)
+            .or_insert(ops.iter().cloned().collect::<HashSet<Op>>());
         *e = e.intersection(&possible).cloned().collect();
     }
+    println!("Part 1: {}", part1);
 
     let mut op_codes = [Op::Unknown; 16];
     let mut all_known = false;
@@ -46,7 +53,9 @@ fn main() {
             }
             all_known = false;
             for n in 0..16 {
-                if n == k { continue; }
+                if n == k {
+                    continue;
+                }
                 v.remove(&op_codes[n as usize]);
             }
             if v.len() == 1 {
@@ -57,11 +66,14 @@ fn main() {
 
     let mut regs = vec![0, 0, 0, 0];
     for line in lines {
-        let data = line.split_whitespace().map(|o| o.parse::<u32>().unwrap()).collect::<Vec<u32>>();
+        let data = line
+            .split_whitespace()
+            .map(|o| o.parse::<u32>().unwrap())
+            .collect::<Vec<u32>>();
         let (op_code, a, b, c) = (data[0], data[1], data[2], data[3]);
         regs = op_codes[op_code as usize].execute(&regs, a, b, c);
     }
-    println!("result: {}", regs[0]);
+    println!("Part 2: {}", regs[0]);
 }
 
 fn check(before: &str, o: &str, after: &str, ops: &Vec<Op>) -> (u32, HashSet<Op>) {
@@ -69,11 +81,20 @@ fn check(before: &str, o: &str, after: &str, ops: &Vec<Op>) -> (u32, HashSet<Op>
     let after = after.trim_start_matches("After: ").trim_start();
 
     let before = before.trim_start_matches("[").trim_end_matches("]");
-    let start_reg = before.split(", ").map(|s| s.parse::<u32>().unwrap()).collect::<Vec<u32>>();
+    let start_reg = before
+        .split(", ")
+        .map(|s| s.parse::<u32>().unwrap())
+        .collect::<Vec<u32>>();
     let after = after.trim_start_matches("[").trim_end_matches("]");
-    let end_reg = after.split(", ").map(|s| s.parse::<u32>().unwrap()).collect::<Vec<u32>>();
+    let end_reg = after
+        .split(", ")
+        .map(|s| s.parse::<u32>().unwrap())
+        .collect::<Vec<u32>>();
 
-    let o = o.split_whitespace().map(|s| s.parse::<u32>().unwrap()).collect::<Vec<u32>>();
+    let o = o
+        .split_whitespace()
+        .map(|s| s.parse::<u32>().unwrap())
+        .collect::<Vec<u32>>();
     let (op_code, a, b, c) = (o[0], o[1], o[2], o[3]);
 
     let mut poss = HashSet::new();
@@ -109,7 +130,7 @@ enum Op {
 impl Op {
     fn execute(&self, reg: &Vec<u32>, a: u32, b: u32, c: u32) -> Vec<u32> {
         let mut result = reg.clone();
-        let val = match self {
+        result[c as usize] = match self {
             Op::Unknown => panic!("bad op"),
             Op::Addi => result[a as usize] + b,
             Op::Addr => result[a as usize] + result[b as usize],
@@ -121,14 +142,37 @@ impl Op {
             Op::Bori => result[a as usize] | b,
             Op::Setr => result[a as usize],
             Op::Seti => a,
-            Op::Gtir => if a > result[b as usize] { 1 } else { 0 },
-            Op::Gtri => if result[a as usize] > b { 1 } else { 0 },
-            Op::Gtrr => if result[a as usize] > result[b as usize] { 1 } else { 0 },
-            Op::Eqir => if a == result[b as usize] { 1 } else { 0 },
-            Op::Eqri => if result[a as usize] == b { 1 } else { 0 },
-            Op::Eqrr => if result[a as usize] == result[b as usize] { 1 } else { 0 },
+            Op::Gtir => if a > result[b as usize] {
+                1
+            } else {
+                0
+            },
+            Op::Gtri => if result[a as usize] > b {
+                1
+            } else {
+                0
+            },
+            Op::Gtrr => if result[a as usize] > result[b as usize] {
+                1
+            } else {
+                0
+            },
+            Op::Eqir => if a == result[b as usize] {
+                1
+            } else {
+                0
+            },
+            Op::Eqri => if result[a as usize] == b {
+                1
+            } else {
+                0
+            },
+            Op::Eqrr => if result[a as usize] == result[b as usize] {
+                1
+            } else {
+                0
+            },
         };
-        result[c as usize] = val;
         result
     }
 }
