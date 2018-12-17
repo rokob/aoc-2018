@@ -273,7 +273,7 @@ fn count(grid: &[[Tile; N]; N], min: usize, max: usize) -> usize {
     let mut count = 0;
     for x in 0..N {
         for y in min..max + 1 {
-            if grid[y][x] == WaterStand || grid[y][x] == WaterPour || grid[y][x] == Spring {
+            if grid[y][x] == WaterStand {
                 count += 1;
             }
         }
