@@ -26,16 +26,18 @@ fn main() {
         }
     }
 
-    let mut scores = Vec::new();
     let mut seen = HashMap::new();
     let first = compute(&area);
-    scores.push(first);
+    let mut last_score = first;
     seen.insert(first, 0);
     let mut stop_at = 0;
-    for n in 1..1000000000 {
+    for n in 1..1_000_000_000 {
         area = once(area);
         let score = compute(&area);
-        scores.push(score);
+        if n == 10 {
+            println!("Part 1: {}", score);
+        }
+        last_score = score;
         if seen.contains_key(&score) && n > 1000 {
             stop_at = n;
             break;
@@ -43,12 +45,10 @@ fn main() {
             seen.insert(score, n);
         }
     }
-    let x = seen.get(scores.last().unwrap()).unwrap();
+    let x = seen.get(&last_score).unwrap();
     let diff = stop_at - x;
 
-    let k = (1000000000 - stop_at) % diff;
-    println!("{} {} {} {}", stop_at, x, diff, k);
-    println!("{} {}", scores[*x], scores[stop_at]);
+    let k = (1_000_000_000 - stop_at) % diff;
     for _ in 0..k {
         area = once(area);
     }
@@ -57,26 +57,23 @@ fn main() {
     println!("Part 2: {}", result);
 }
 
-fn adj_counts(area: &[[Tile; N]; N], r: usize, c: usize) -> (usize, usize, usize) {
-    let mut e = 0;
+fn adj_counts(area: &[[Tile; N]; N], r: usize, c: usize) -> (usize, usize) {
     let mut t = 0;
     let mut l = 0;
-    for rr in 0..3 {
-        for cc in 0..3 {
-            let rrr = rr as isize - 1;
-            let ccc = cc as isize - 1;
-            if rrr == 0 && ccc == 0 { continue; }
-            let y = r as isize + rrr;
-            let x = c as isize + ccc;
+    for rr in -1..2 {
+        for cc in -1..2 {
+            if rr == 0 && cc == 0 { continue; }
+            let y = r as isize + rr;
+            let x = c as isize + cc;
             if y < 0 || x < 0 || y >= N as isize  || x >= N as isize { continue; }
             match area[y as usize][x as usize] {
-                Open => e += 1,
+                Open => {},
                 Tree => t += 1,
                 Lumber => l += 1,
             }
         }
     }
-    (e, t, l)
+    (t, l)
 }
 /*
  *
@@ -91,7 +88,7 @@ fn once(area: [[Tile; N]; N]) -> [[Tile; N]; N] {
     let mut result = [[Open; N]; N];
     for r in 0..N {
         for c in 0..N {
-            let (_e, t, l) = adj_counts(&area, r, c);
+            let (t, l) = adj_counts(&area, r, c);
             match area[r][c] {
                 Open => {
                     if t >= 3 {
