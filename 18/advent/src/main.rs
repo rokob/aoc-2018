@@ -26,12 +26,35 @@ fn main() {
         }
     }
 
-    for _ in 0..10 {
+    let mut scores = Vec::new();
+    let mut seen = HashMap::new();
+    let first = compute(&area);
+    scores.push(first);
+    seen.insert(first, 0);
+    let mut stop_at = 0;
+    for n in 1..1000000000 {
+        area = once(area);
+        let score = compute(&area);
+        scores.push(score);
+        if seen.contains_key(&score) && n > 1000 {
+            stop_at = n;
+            break;
+        } else {
+            seen.insert(score, n);
+        }
+    }
+    let x = seen.get(scores.last().unwrap()).unwrap();
+    let diff = stop_at - x;
+
+    let k = (1000000000 - stop_at) % diff;
+    println!("{} {} {} {}", stop_at, x, diff, k);
+    println!("{} {}", scores[*x], scores[stop_at]);
+    for _ in 0..k {
         area = once(area);
     }
-    let result = compute(area);
+    let result = compute(&area);
 
-    println!("Part 1: {}", result);
+    println!("Part 2: {}", result);
 }
 
 fn adj_counts(area: &[[Tile; N]; N], r: usize, c: usize) -> (usize, usize, usize) {
@@ -68,7 +91,7 @@ fn once(area: [[Tile; N]; N]) -> [[Tile; N]; N] {
     let mut result = [[Open; N]; N];
     for r in 0..N {
         for c in 0..N {
-            let (e, t, l) = adj_counts(&area, r, c);
+            let (_e, t, l) = adj_counts(&area, r, c);
             match area[r][c] {
                 Open => {
                     if t >= 3 {
@@ -95,7 +118,7 @@ fn once(area: [[Tile; N]; N]) -> [[Tile; N]; N] {
     result
 }
 
-fn compute(area: [[Tile; N]; N]) -> usize {
+fn compute(area: &[[Tile; N]; N]) -> usize {
     let mut wood = 0;
     let mut lumber = 0;
     for r in 0..N {
