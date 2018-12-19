@@ -11,8 +11,8 @@ fn main() {
         instrs.push(parse(line));
     }
 
-    let mut ip: u32 = 0;
-    let mut regs: Vec<u32> = vec![0, 0, 0, 0, 0, 0];
+    let mut ip: u128 = 0;
+    let mut regs: Vec<u128> = vec![0, 0, 0, 0, 0, 0];
     while (ip as usize) < instrs.len() {
         regs[ip_reg] = ip;
         let instr = instrs[ip as usize];
@@ -21,10 +21,35 @@ fn main() {
         ip = regs[ip_reg];
         ip += 1;
     }
-    println!("{}", regs[0]);
+    println!("Part 1: {}", regs[0]);
+
+    // After printing out the registers and seeing the loop,
+    // I played around with jumping the registers ahead based
+    // on the conditions I could see that would move things.
+    // Eventually I saw that the conditions:
+    //    mulr 1 4 5
+    //    eqrr 5 2 5
+    // was really driving everything as register 2 was set to
+    // 10551305 and was not moving. Register 5 would increment
+    // by 1 and then when that condition was true, we would add
+    // register 1 to register 0 and start over with one larger
+    // in register 1. If that multiplication was impossible to
+    // get equality then we would eventually loop back around
+    // when 5 got bigger than 2.
+    //
+    // So we are just adding up the divisors of the number in
+    // register 2. So without doing anything fancy this loop
+    // does the same thing:
+    let mut sum = 0;
+    for i in 1..(10551305+1) {
+        if 10551305 % i == 0 {
+            sum += i;
+        }
+    }
+    println!("Part 2: {}", sum);
 }
 
-fn parse(line: &str) -> (Op, u32, u32, u32) {
+fn parse(line: &str) -> (Op, u128, u128, u128) {
     let vals = line.split(" ").collect::<Vec<_>>();
     let op = match vals[0] {
                 "addr" => Addr,
@@ -45,9 +70,9 @@ fn parse(line: &str) -> (Op, u32, u32, u32) {
                 "eqrr" => Eqrr,
                 _ => panic!("bad"),
     };
-    let a = vals[1].parse::<u32>().unwrap();
-    let b = vals[2].parse::<u32>().unwrap();
-    let c = vals[3].parse::<u32>().unwrap();
+    let a = vals[1].parse::<u128>().unwrap();
+    let b = vals[2].parse::<u128>().unwrap();
+    let c = vals[3].parse::<u128>().unwrap();
     (op, a, b, c)
 }
 
@@ -69,15 +94,13 @@ enum Op {
     Eqir,
     Eqri,
     Eqrr,
-    Unknown,
 }
 use Op::*;
 
 impl Op {
-    fn execute(&self, reg: &Vec<u32>, a: u32, b: u32, c: u32) -> Vec<u32> {
+    fn execute(&self, reg: &Vec<u128>, a: u128, b: u128, c: u128) -> Vec<u128> {
         let mut result = reg.clone();
         result[c as usize] = match self {
-            Op::Unknown => panic!("bad op"),
             Op::Addi => result[a as usize] + b,
             Op::Addr => result[a as usize] + result[b as usize],
             Op::Mulr => result[a as usize] * result[b as usize],
