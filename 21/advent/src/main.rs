@@ -3,6 +3,46 @@ extern crate utils;
 use utils::{read_file, split_ws, HashMap, HashSet};
 
 fn main() {
+    part1();
+    part2();
+}
+
+fn part2() {
+    let mut seen = HashSet::new();
+    let mut last = 0u128;
+    let mut x_1: u128;
+    let mut x_3 = 0u128;
+    let mut x_4: u128;
+    let x_0 = 0;
+    'a: loop {
+      x_4 = x_3 | 65536;
+      x_3 = 2176960;
+      'b: loop {
+        x_1 = x_4 & 255;
+        x_3 = x_3 + x_1;
+        x_3 = x_3 & 16777215;
+        x_3 = x_3 * 65899;
+        x_3 = x_3 & 16777215;
+        if 256 > x_4 {
+          if x_3 == x_0 {
+              println!("oops");
+            break 'a;
+          } else {
+              if !seen.insert(x_3) {
+                  break 'a;
+              } else {
+                  last = x_3;
+              }
+            continue 'a;
+          }
+        }
+        x_4 = x_4 / 256;
+      }
+    }
+    println!("Part 2: {}", last);
+}
+
+fn part1() {
     let mut lines = include_str!("../input.txt").lines();
     let ip_reg = lines.next().unwrap().split(" ").collect::<Vec<_>>()[1].parse::<usize>().unwrap();
 
@@ -46,6 +86,7 @@ x_3 = x_3 & 16777215;
         ip = regs[ip_reg];
         ip += 1;
     }
+
     println!("Part 1: {}", x_3);
 }
 
