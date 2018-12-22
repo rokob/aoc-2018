@@ -6,7 +6,8 @@ const DEPTH: usize = 11739;
 const TX: usize = 11;
 const TY: usize = 718;
 
-const N: usize = 720;
+const NY: usize = 800;
+const NX: usize = 40;
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 enum Type {
@@ -15,6 +16,25 @@ enum Type {
     Narrow,
 }
 use Type::*;
+
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
+enum Equip {
+    Torch,
+    Climbing,
+    Neither,
+}
+use Equip::*;
+
+fn can_use(region: Type, equip: Equip) -> bool {
+    match (region, equip) {
+        (Rocky, Climbing) | (Rocky, Torch) => true,
+        (Rocky, _) => false,
+        (Wet, Climbing) | (Wet, Neither) => true,
+        (Wet, _) => false,
+        (Narrow, Torch) | (Narrow, Neither) => true,
+        (Narrow, _) => false,
+    }
+}
 
 use std::fmt;
 impl fmt::Display for Type {
@@ -28,19 +48,19 @@ impl fmt::Display for Type {
 }
 
 fn main() {
-    let mut cave = [[0usize; N]; N];
-    for y in 0..N {
-        for x in 0..N {
+    let mut cave = [[0usize; NX]; NY];
+    for y in 0..NY {
+        for x in 0..NX {
             if let Some(idx) = geoindex(x, y) {
                 cave[y][x] = erosion_level(idx);
             } else {
-                cave[y][x] = erosion_level(cave[y-1][x] * cave[y][x-1])
+                cave[y][x] = erosion_level(cave[y - 1][x] * cave[y][x - 1])
             }
         }
     }
-    let mut real = [[Rocky; N]; N];
-    for y in 0..N {
-        for x in 0..N {
+    let mut real = [[Rocky; NX]; NY];
+    for y in 0..NY {
+        for x in 0..NX {
             real[y][x] = type_from_level(cave[y][x]);
         }
     }
@@ -48,26 +68,28 @@ fn main() {
     let mut result = 0;
     for y in 0..=TY {
         for x in 0..=TX {
-            /*
-            if x == 0 && y == 0 { print!("M") }
-            else if x == TX && y == TX { print!("T") }
-            else {
-                print!("{}", real[y][x]);
-            }
-            */
             result += risk(real[y][x]);
         }
-        //println!("");
     }
-    //println!("");
-    println!("{}", result);
+    println!("Part 1: {}", result);
+
+    result = find_path(real);
+    println!("Part 2: {}", result);
 }
 
 fn geoindex(x: usize, y: usize) -> Option<usize> {
-    if x == 0 && y == 0 { return Some(0); }
-    if x == TX && y == TY { return Some(0); }
-    if y == 0 { return Some(x * 16807); }
-    if x == 0 { return Some(y * 48271); }
+    if x == 0 && y == 0 {
+        return Some(0);
+    }
+    if x == TX && y == TY {
+        return Some(0);
+    }
+    if y == 0 {
+        return Some(x * 16807);
+    }
+    if x == 0 {
+        return Some(y * 48271);
+    }
     None
 }
 
@@ -84,7 +106,6 @@ fn type_from_level(level: usize) -> Type {
     }
 }
 
-// 0 for rocky regions, 1 for wet regions, and 2 for narrow regions.
 fn risk(typ: Type) -> usize {
     match typ {
         Rocky => 0,
@@ -93,16 +114,125 @@ fn risk(typ: Type) -> usize {
     }
 }
 
-/*
-The region at 0,0 (the mouth of the cave) has a geologic index of 0.
-The region at the coordinates of the target has a geologic index of 0.
-If the region's Y coordinate is 0, the geologic index is its X coordinate times 16807.
-If the region's X coordinate is 0, the geologic index is its Y coordinate times 48271.
-Otherwise, the region's geologic index is the result of multiplying the erosion levels of the regions at X-1,Y and X,Y-1.
-A region's erosion level is its geologic index plus the cave system's depth, all modulo 20183. Then:
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 
-If the erosion level modulo 3 is 0, the region's type is rocky.
-If the erosion level modulo 3 is 1, the region's type is wet.
-If the erosion level modulo 3 is 2, the region's type is narrow.
-*/
+#[derive(Copy, Clone, Eq, PartialEq)]
+struct State {
+    cost: usize,
+    pos: (usize, usize, Equip),
+}
 
+impl Ord for Equip {
+    fn cmp(&self, _other: &Equip) -> Ordering {
+        Ordering::Equal
+    }
+}
+
+impl PartialOrd for Equip {
+    fn partial_cmp(&self, _other: &Equip) -> Option<Ordering> {
+        Some(Ordering::Equal)
+    }
+}
+
+impl Ord for State {
+    fn cmp(&self, other: &State) -> Ordering {
+        // make it a min heap
+        other
+            .cost
+            .cmp(&self.cost)
+            .then_with(|| self.pos.cmp(&other.pos))
+    }
+}
+
+impl PartialOrd for State {
+    fn partial_cmp(&self, other: &State) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+fn find_path(grid: [[Type; NX]; NY]) -> usize {
+    let start = (0, 0, Torch);
+    let goal = (TX, TY, Torch);
+
+    let mut dist = HashMap::new();
+    for y in 0..NY {
+        for x in 0..NX {
+            if can_use(grid[y][x], Torch) {
+                dist.insert((x, y, Torch), std::usize::MAX);
+            }
+            if can_use(grid[y][x], Climbing) {
+                dist.insert((x, y, Climbing), std::usize::MAX);
+            }
+            if can_use(grid[y][x], Neither) {
+                dist.insert((x, y, Neither), std::usize::MAX);
+            }
+        }
+    }
+    dist.insert(start, 0);
+
+    let mut heap = BinaryHeap::new();
+    heap.push(State {
+        cost: 0,
+        pos: start,
+    });
+
+    while let Some(State { cost, pos }) = heap.pop() {
+        if pos == goal {
+            return cost;
+        }
+
+        if cost > *dist.get(&pos).unwrap() {
+            continue;
+        }
+
+        for n in neigh(pos, &grid) {
+            let alt = cost + if pos.2 != n.2 { 7 } else { 1 };
+            let next = State { cost: alt, pos: n };
+            if next.cost < *dist.get(&next.pos).unwrap() {
+                heap.push(next);
+                dist.insert(next.pos, next.cost);
+            }
+        }
+    }
+
+    return std::usize::MAX;
+}
+
+fn neigh(pos: (usize, usize, Equip), grid: &[[Type; NX]; NY]) -> Vec<(usize, usize, Equip)> {
+    let mut result = Vec::with_capacity(7);
+    if pos.2 != Torch && can_use(grid[pos.1][pos.0], Torch) {
+        result.push((pos.0, pos.1, Torch));
+    }
+    if pos.2 != Climbing && can_use(grid[pos.1][pos.0], Climbing) {
+        result.push((pos.0, pos.1, Climbing));
+    }
+    if pos.2 != Neither && can_use(grid[pos.1][pos.0], Neither) {
+        result.push((pos.0, pos.1, Neither));
+    }
+    // up
+    if pos.1 > 0 {
+        if can_use(grid[pos.1 - 1][pos.0], pos.2) {
+            result.push((pos.0, pos.1 - 1, pos.2));
+        }
+    }
+    // down
+    if pos.1 < NY - 1 {
+        if can_use(grid[pos.1 + 1][pos.0], pos.2) {
+            result.push((pos.0, pos.1 + 1, pos.2));
+        }
+    }
+    // left
+    if pos.0 > 0 {
+        if can_use(grid[pos.1][pos.0 - 1], pos.2) {
+            result.push((pos.0 - 1, pos.1, pos.2));
+        }
+    }
+    // right
+    if pos.0 < NX - 1 {
+        if can_use(grid[pos.1][pos.0 + 1], pos.2) {
+            result.push((pos.0 + 1, pos.1, pos.2));
+        }
+    }
+    result
+}
