@@ -226,7 +226,30 @@ fn main() {
         }
     }
 
+    let (_, part1) = run(immune.clone(), infection.clone(), 0);
+    println!("Part 1: {}", part1);
+
+    let mut boost = 1;
+    loop {
+        let (winner, result) = run(immune.clone(), infection.clone(), boost);
+        if winner == Immune {
+            println!("Part 2: {}", result);
+            break;
+        }
+        boost += 1;
+    }
+}
+
+fn run(mut immune: Vec<Group>, mut infection: Vec<Group>, boost: usize) -> (Army, usize) {
+    for g in immune.iter_mut() {
+        g.attack += boost;
+    }
+
     let result: usize;
+    //let mut immune_count = immune.iter().filter(|g| g.units > 0).count();
+    //let mut infection_count = infection.iter().filter(|g| g.units > 0).count();
+    let mut immune_count: usize = immune.iter().map(|g| g.power()).sum();
+    let mut infection_count: usize = infection.iter().map(|g| g.power()).sum();
     loop {
         immune.sort_by_key(|g| (g.units == 0, Reverse(g.power()), Reverse(g.initiative)));
         infection.sort_by_key(|g| (g.units == 0, Reverse(g.power()), Reverse(g.initiative)));
@@ -336,18 +359,26 @@ fn main() {
             }
         }
 
-        let immune_left = immune.iter().filter(|g| g.units > 0).count() > 0;
-        if !immune_left {
+        let immune_left = immune.iter().filter(|g| g.units > 0).count();
+        if immune_left == 0 {
             result = infection.iter().map(|g| g.units).sum();
-            break;
+            return (Infection, result);
         }
-        let infect_left = infection.iter().filter(|g| g.units > 0).count() > 0;
-        if !infect_left {
+        let infect_left = infection.iter().filter(|g| g.units > 0).count();
+        if infect_left == 0 {
             result = immune.iter().map(|g| g.units).sum();
-            break;
+            return (Immune, result);
         }
+
+        let next_im = immune.iter().map(|g| g.power()).sum();
+        let next_in = infection.iter().map(|g| g.power()).sum();
+        if immune_count == next_im && infection_count == next_in {
+            // stalemate
+            return (Infection, 0);
+        }
+        immune_count = next_im;
+        infection_count = next_in;
     }
-    println!("{}", result);
 }
 
 fn attack(attacker: &Group, defender: &mut Group) {
